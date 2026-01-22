@@ -1,12 +1,38 @@
 const { Pool } = require('pg');
+const path = require('path');
 
-// Create PostgreSQL connection pool
+// Load .env file explicitly
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+// Get and validate database password
+const dbPassword = process.env.DB_PASSWORD;
+
+// Debug: Log password status (without showing actual password)
+console.log('DB_PASSWORD type:', typeof dbPassword);
+console.log('DB_PASSWORD exists:', !!dbPassword);
+console.log('DB_PASSWORD length:', dbPassword ? dbPassword.length : 0);
+
+if (!dbPassword) {
+  console.error('❌ Database password is missing! Check your .env file.');
+  console.error('Expected: DB_PASSWORD="Hussn@in0341"');
+  process.exit(1);
+}
+
+if (typeof dbPassword !== 'string') {
+  console.error('❌ Database password must be a string. Current type:', typeof dbPassword);
+  console.error('Value:', dbPassword);
+  process.exit(1);
+}
+
+// Remove quotes if present (dotenv sometimes includes them)
+const cleanPassword = dbPassword.replace(/^["']|["']$/g, '');
+
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
+  port: parseInt(process.env.DB_PORT) || 5432,
   database: process.env.DB_NAME || 'license_admin',
   user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
+  password: cleanPassword, // Use cleaned password
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
