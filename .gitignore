@@ -31,6 +31,7 @@ pm2-out.log
 # Backups
 backups/
 *.sql
+!database/*.sql
 *.dump
 
 # OS files
