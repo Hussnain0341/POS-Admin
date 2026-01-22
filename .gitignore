@@ -65,3 +65,4 @@ deploy-package/
 !scripts/*.sh
 !deploy-vps-auto.sh
 !cleanup-vps.sh
+!fix-api-url.sh
