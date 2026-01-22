@@ -75,3 +75,4 @@ deploy-package/
 !debug-login-issue.sh
 !verify-login-works.sh
 !fix-truncated-hash.sh
+!update-server-code.sh
