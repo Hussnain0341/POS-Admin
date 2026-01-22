@@ -20,7 +20,7 @@ NC='\033[0m' # No Color
 # Configuration (Change these if needed)
 GITHUB_REPO="https://github.com/Hussnain0341/POS-Admin.git"
 DEPLOY_PATH="/var/www/license-admin"
-DOMAIN="license.zentryasolutions.com"
+DOMAIN="api.zentryasolutions.com"
 DB_NAME="hisaabkitab_license"
 DB_USER="postgres"
 DB_PASSWORD="Hussn@in0341"

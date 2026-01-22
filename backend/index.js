@@ -24,7 +24,12 @@ const rateLimit = require('express-rate-limit');
 
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://license.zentryasolutions.com', 'https://www.license.zentryasolutions.com']
+    ? [
+        'https://api.zentryasolutions.com',
+        'https://www.api.zentryasolutions.com',
+        'https://license.zentryasolutions.com',
+        'https://www.license.zentryasolutions.com'
+      ]
     : '*',
   credentials: true,
   optionsSuccessStatus: 200

@@ -5,7 +5,7 @@ import axios from 'axios';
 // Default to production URL, fallback to localhost for development
 const API_URL = process.env.REACT_APP_API_URL || 
   (process.env.NODE_ENV === 'production' 
-    ? 'https://license.zentryasolutions.com/api'
+    ? 'https://api.zentryasolutions.com/api'
     : 'http://localhost:3001/api');
 
 const api = axios.create({
