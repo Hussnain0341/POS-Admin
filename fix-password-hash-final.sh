@@ -28,9 +28,24 @@ export PGPASSWORD="$DB_PASSWORD"
 cd $DEPLOY_PATH/backend
 
 # ============================================
-# STEP 1: GENERATE NEW HASH USING BACKEND'S bcryptjs
+# STEP 1: INSTALL bcryptjs IF NEEDED
 # ============================================
-echo -e "${YELLOW}🔐 Step 1: Generating new password hash...${NC}"
+echo -e "${YELLOW}📦 Step 1: Checking bcryptjs installation...${NC}"
+
+if [ ! -d "node_modules/bcryptjs" ]; then
+    echo "   Installing bcryptjs..."
+    npm install bcryptjs > /dev/null 2>&1
+    echo -e "   ${GREEN}✅ bcryptjs installed${NC}"
+else
+    echo -e "   ${GREEN}✅ bcryptjs already installed${NC}"
+fi
+
+echo ""
+
+# ============================================
+# STEP 2: GENERATE NEW HASH USING BACKEND'S bcryptjs
+# ============================================
+echo -e "${YELLOW}🔐 Step 2: Generating new password hash...${NC}"
 
 cat > /tmp/generate-new-hash.js << 'GENEOF'
 const bcrypt = require('bcryptjs');
@@ -45,17 +60,17 @@ bcrypt.hash('admin123', 10, (err, hash) => {
 });
 GENEOF
 
-NEW_HASH=$(node /tmp/generate-new-hash.js)
+# Use backend's node_modules
+NEW_HASH=$(NODE_PATH=$DEPLOY_PATH/backend/node_modules node /tmp/generate-new-hash.js 2>/dev/null)
 
-if [ -z "$NEW_HASH" ]; then
-    echo -e "   ${RED}❌ Failed to generate hash!${NC}"
-    echo "   Installing bcryptjs..."
-    npm install bcryptjs > /dev/null 2>&1
-    NEW_HASH=$(node /tmp/generate-new-hash.js)
+if [ -z "$NEW_HASH" ] || [ ${#NEW_HASH} -lt 50 ]; then
+    echo -e "   ${YELLOW}⚠️  First attempt failed, trying with full path...${NC}"
+    cd $DEPLOY_PATH/backend
+    NEW_HASH=$(node /tmp/generate-new-hash.js 2>&1 | grep -v "Error\|at\|Module\|process" | head -1)
 fi
 
-if [ -z "$NEW_HASH" ]; then
-    echo -e "   ${RED}❌ Still failed! Using known good hash...${NC}"
+if [ -z "$NEW_HASH" ] || [ ${#NEW_HASH} -lt 50 ]; then
+    echo -e "   ${RED}❌ Failed to generate hash! Using known good hash...${NC}"
     NEW_HASH='$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 fi
 
@@ -65,9 +80,9 @@ rm -f /tmp/generate-new-hash.js
 echo ""
 
 # ============================================
-# STEP 2: VERIFY NEW HASH WORKS
+# STEP 3: VERIFY NEW HASH WORKS
 # ============================================
-echo -e "${YELLOW}🧪 Step 2: Verifying new hash...${NC}"
+echo -e "${YELLOW}🧪 Step 3: Verifying new hash...${NC}"
 
 cat > /tmp/verify-hash.js << 'VERIFYEOF'
 const bcrypt = require('bcryptjs');
@@ -101,9 +116,9 @@ rm -f /tmp/verify-hash.js
 echo ""
 
 # ============================================
-# STEP 3: UPDATE DATABASE
+# STEP 4: UPDATE DATABASE
 # ============================================
-echo -e "${YELLOW}💾 Step 3: Updating database...${NC}"
+echo -e "${YELLOW}💾 Step 4: Updating database...${NC}"
 
 psql -h localhost -U $DB_USER -d $DB_NAME << EOF
 -- Delete existing admin user
@@ -130,9 +145,9 @@ echo -e "   ${GREEN}✅ Database updated${NC}"
 echo ""
 
 # ============================================
-# STEP 4: TEST WITH BACKEND CONFIGURATION
+# STEP 5: TEST WITH BACKEND CONFIGURATION
 # ============================================
-echo -e "${YELLOW}🧪 Step 4: Testing with backend configuration...${NC}"
+echo -e "${YELLOW}🧪 Step 5: Testing with backend configuration...${NC}"
 
 cat > /tmp/test-backend-hash.js << 'TESTEOF'
 const bcrypt = require('bcryptjs');
@@ -198,9 +213,9 @@ rm -f /tmp/test-backend-hash.js
 echo ""
 
 # ============================================
-# STEP 5: RESTART BACKEND
+# STEP 6: RESTART BACKEND
 # ============================================
-echo -e "${YELLOW}🔄 Step 5: Restarting backend...${NC}"
+echo -e "${YELLOW}🔄 Step 6: Restarting backend...${NC}"
 
 cd $DEPLOY_PATH
 pm2 restart license-admin --update-env > /dev/null 2>&1
@@ -216,9 +231,9 @@ fi
 echo ""
 
 # ============================================
-# STEP 6: TEST LOGIN ENDPOINT
+# STEP 7: TEST LOGIN ENDPOINT
 # ============================================
-echo -e "${YELLOW}🌐 Step 6: Testing login endpoint...${NC}"
+echo -e "${YELLOW}🌐 Step 7: Testing login endpoint...${NC}"
 
 sleep 2
 
