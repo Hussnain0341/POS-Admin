@@ -68,3 +68,4 @@ deploy-package/
 !fix-api-url.sh
 !fix-login-issue.sh
 !fix-login-simple.sh
+!fix-admin-password-vps.sh
