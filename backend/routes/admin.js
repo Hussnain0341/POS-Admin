@@ -7,10 +7,16 @@ const { authenticateToken } = require('../middleware/auth');
 const { auditLog } = require('../middleware/audit');
 const { generateLicenseKey, validateLicenseKeyFormat } = require('../utils/licenseKey');
 const { v4: uuidv4 } = require('uuid');
+const { send2FACode } = require('../services/email');
 
 const router = express.Router();
 
-// Admin Login
+// Generate 6-digit code
+function generate2FACode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// Admin Login - Step 1: validate password, send 2FA code to email
 router.post('/login', [
   body('username').notEmpty().withMessage('Username is required'),
   body('password').notEmpty().withMessage('Password is required')
@@ -23,7 +29,6 @@ router.post('/login', [
 
     const { username, password } = req.body;
 
-    // Note: PostgreSQL converts unquoted identifiers to lowercase
     const result = await pool.query(
       'SELECT id, username, passwordhash as "passwordHash", role FROM adminusers WHERE username = $1',
       [username]
@@ -35,31 +40,123 @@ router.post('/login', [
     }
 
     const user = result.rows[0];
-    
     if (!user.passwordHash) {
       console.error('Login error: passwordHash is missing for user:', username);
       await auditLog('login_failed', { username, reason: 'password_hash_missing' }, null, req);
       return res.status(500).json({ error: 'Admin user configuration error. Please contact administrator.' });
     }
-    
-    const isValid = await bcrypt.compare(password, user.passwordHash);
 
+    const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
       await auditLog('login_failed', { username, reason: 'invalid_password' }, null, req);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // 2FA ENABLED - Generate code, store, send email
+    const code = generate2FACode();
+    const tempToken = uuidv4();
+    const twoFAEmail = process.env.TWO_FA_EMAIL || 'hussnain0341@gmail.com';
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Clean old pending 2FA for this user
+    await pool.query('DELETE FROM login_2fa_codes WHERE user_id = $1', [user.id]);
+
+    await pool.query(
+      `INSERT INTO login_2fa_codes (temp_token, user_id, code, email, expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [tempToken, user.id, code, twoFAEmail, expiresAt]
+    );
+
+    const emailResult = await send2FACode(code, user.username);
+    if (!emailResult.sent) {
+      await pool.query('DELETE FROM login_2fa_codes WHERE temp_token = $1', [tempToken]);
+      await auditLog('login_failed', { username, reason: '2fa_email_failed' }, null, req);
+      return res.status(503).json({
+        error: 'Could not send verification email. Please check SMTP configuration or try again later.',
+        detail: process.env.NODE_ENV === 'development' ? emailResult.error : undefined
+      });
+    }
+
+    await auditLog('login_2fa_sent', { username, userId: user.id }, null, req);
+
+    res.json({
+      require2FA: true,
+      tempToken,
+      email: twoFAEmail,
+      message: `Verification code sent to ${twoFAEmail}. Check your inbox.`
+    });
+  } catch (error) {
+    if (error.code === '42P01') {
+      // undefined_table
+      return res.status(503).json({
+        error: '2FA is not set up. Run database/03_2FA_TABLE.sql in pgAdmin, then restart the server.'
+      });
+    }
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Verify 2FA - Step 2: validate code, return JWT
+router.post('/verify-2fa', [
+  body('tempToken').notEmpty().withMessage('Session token is required'),
+  body('code').notEmpty().withMessage('Verification code is required').isLength({ min: 6, max: 6 }).withMessage('Code must be 6 digits')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { tempToken, code } = req.body;
+
+    const row = await pool.query(
+      `SELECT r.id, r.user_id, r.code, r.expires_at, u.username, u.role
+       FROM login_2fa_codes r
+       JOIN adminusers u ON u.id = r.user_id
+       WHERE r.temp_token = $1 AND r.used_at IS NULL`,
+      [tempToken]
+    );
+
+    if (row.rows.length === 0) {
+      await auditLog('login_2fa_failed', { reason: 'invalid_or_used_token' }, null, req);
+      return res.status(401).json({ error: 'Invalid or expired session. Please log in again.' });
+    }
+
+    const rec = row.rows[0];
+    if (new Date(rec.expires_at) < new Date()) {
+      await pool.query('UPDATE login_2fa_codes SET used_at = NOW() WHERE id = $1', [rec.id]);
+      await auditLog('login_2fa_failed', { reason: 'expired' }, null, req);
+      return res.status(401).json({ error: 'Code expired. Please log in again.' });
+    }
+
+    if (rec.code !== String(code).trim()) {
+      await auditLog('login_2fa_failed', { reason: 'wrong_code' }, null, req);
+      return res.status(401).json({ error: 'Invalid verification code.' });
+    }
+
+    // Mark as used
+    await pool.query('UPDATE login_2fa_codes SET used_at = NOW() WHERE id = $1', [rec.id]);
+
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: rec.user_id, username: rec.username, role: rec.role },
       process.env.JWT_SECRET || 'your-secret-key-change-in-production',
       { expiresIn: '24h' }
     );
 
-    await auditLog('login_success', { username, userId: user.id }, null, req);
+    await auditLog('login_success', { username: rec.username, userId: rec.user_id, twoFA: true }, null, req);
 
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+    res.json({
+      token,
+      user: { id: rec.user_id, username: rec.username, role: rec.role }
+    });
   } catch (error) {
-    console.error('Login error:', error);
+    if (error.code === '42P01') {
+      return res.status(503).json({
+        error: '2FA is not set up. Run database/03_2FA_TABLE.sql in pgAdmin, then restart the server.'
+      });
+    }
+    console.error('Verify 2FA error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -84,6 +84,10 @@ export const authAPI = {
     const response = await api.post('/admin/login', credentials);
     return response.data;
   },
+  verify2FA: async (tempToken: string, code: string) => {
+    const response = await api.post('/admin/verify-2fa', { tempToken, code });
+    return response.data;
+  },
 };
 
 export const licensesAPI = {

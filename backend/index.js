@@ -1,4 +1,5 @@
-require('dotenv').config();
+// Load environment variables from backend/.env
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -41,13 +42,16 @@ const limiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 login requests per windowMs
+  max: process.env.NODE_ENV === 'production' ? 5 : 50, // More lenient in development
   message: 'Too many login attempts, please try again later.',
   skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 app.use('/api/', limiter);
 app.use('/api/admin/login', authLimiter);
+app.use('/api/admin/verify-2fa', authLimiter);
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));

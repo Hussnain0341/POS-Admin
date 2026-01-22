@@ -27,6 +27,14 @@ if (typeof dbPassword !== 'string') {
 // Remove quotes if present (dotenv sometimes includes them)
 const cleanPassword = dbPassword.replace(/^["']|["']$/g, '');
 
+// Debug: Log all connection parameters
+console.log('Database connection config:');
+console.log('  Host:', process.env.DB_HOST || 'localhost');
+console.log('  Port:', parseInt(process.env.DB_PORT) || 5432);
+console.log('  Database:', process.env.DB_NAME || 'license_admin');
+console.log('  User:', process.env.DB_USER || 'postgres');
+console.log('  Password length:', cleanPassword ? cleanPassword.length : 0);
+
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT) || 5432,

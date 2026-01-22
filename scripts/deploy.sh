@@ -70,3 +70,4 @@ echo "   3. Test URL: https://license.zentryasolutions.com"
 echo "   4. Change default admin password!"
 
 
+

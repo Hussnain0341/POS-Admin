@@ -1,0 +1,13 @@
+# ========== Copy these into backend/.env for 2FA ==========
+# 2FA sends a 6-digit code to this email to complete login
+TWO_FA_EMAIL=hussnain0341@gmail.com
+
+# SMTP (Gmail example - use App Password: https://myaccount.google.com/apppasswords)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
+SMTP_FROM=your_email@gmail.com
+
+

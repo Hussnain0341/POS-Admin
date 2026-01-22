@@ -15,7 +15,7 @@ Web-based license management system for HisaabKitab POS software.
 
 - **Backend**: Node.js + Express
 - **Database**: PostgreSQL
-- **Frontend**: React.js + Tailwind CSS
+- **Frontend**: React.js + TypeScript + Tailwind CSS
 - **Authentication**: JWT + bcrypt
 
 ## Project Structure
@@ -31,94 +31,128 @@ POS Admin Pannel/
 │   ├── public/      # Static assets
 │   └── src/         # Source code
 ├── database/        # Database schema and migrations
-│   └── schema.sql   # Complete database schema
-├── assets/          # Static assets (docs, images, etc.)
+├── assets/          # Static assets
 ├── scripts/         # Utility scripts
-└── Documentation files
+└── ecosystem.config.js  # PM2 configuration
 ```
 
-## Setup Instructions
+## Quick Start
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
+- Node.js (v16 or higher)
 - PostgreSQL (v12 or higher)
+- npm or yarn
 
 ### Installation
 
-1. Clone the repository
-2. Install dependencies:
+1. **Install root dependencies:**
    ```bash
    npm install
-   cd frontend && npm install && cd ..
    ```
 
-3. Set up database:
-   - Create a PostgreSQL database
-   - Run the SQL schema from `database/schema.sql`
-
-4. Configure environment:
+2. **Install backend dependencies:**
    ```bash
-   cp .env.example .env
+   cd backend
+   npm install
+   cd ..
    ```
-   Edit `.env` with your database credentials and JWT secret.
 
-5. Create default admin user:
-   - The SQL schema includes a default admin user
-   - Username: `admin`
-   - Password: `admin123` (CHANGE THIS IN PRODUCTION!)
-   - To create a new admin: `node scripts/setup-admin.js <username> <password>`
-
-6. Start the server:
+3. **Install frontend dependencies:**
    ```bash
+   cd frontend
+   npm install
+   cd ..
+   ```
+
+4. **Set up database:**
+   - Create PostgreSQL database: `hisaabkitab_license` (or `license_admin`)
+   - Run the SQL schema: `database/02_COMPLETE_SETUP.sql`
+   - Run 2FA table: `database/03_2FA_TABLE.sql` (required for login)
+   - Default admin: `admin` / `admin123`
+
+5. **Configure environment:**
+   - In `backend/.env` set database, JWT, and **SMTP + 2FA** (see `backend/ENV_2FA_SMTP.txt`)
+   - **2FA**: Login requires a 6-digit code sent to `TWO_FA_EMAIL` (default: hussnain0341@gmail.com). Configure SMTP (e.g. Gmail with [App Password](https://myaccount.google.com/apppasswords)).
+   ```
+   PORT=3001
+   NODE_ENV=development
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_USER=postgres
+   DB_PASSWORD=your_password
+   DB_NAME=hisaabkitab_license
+   JWT_SECRET=your_jwt_secret_here
+   CORS_ORIGIN=http://localhost:3000
+   TWO_FA_EMAIL=hussnain0341@gmail.com
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=your_email@gmail.com
+   SMTP_PASS=your_app_password
+   SMTP_FROM=your_email@gmail.com
+   ```
+
+6. **Run the application:**
+   ```bash
+   # Development mode (runs both backend and frontend)
    npm run dev
+   
+   # Or run separately:
+   npm run server    # Backend on port 3001
+   npm run client    # Frontend on port 3000
    ```
 
-### Frontend Setup
-
-The frontend is in the `frontend` directory. See `frontend/README.md` for setup instructions.
+7. **Access the application:**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:3001
+   - Login: `admin` / `admin123` → then enter the 6-digit code sent to `TWO_FA_EMAIL`
 
 ## API Endpoints
 
 ### Admin Endpoints (Require Authentication)
 
-- `POST /api/admin/login` - Admin login
+- `POST /api/admin/login` - Admin login (returns `require2FA` + `tempToken`; then call verify-2fa)
+- `POST /api/admin/verify-2fa` - Complete login with 6-digit code (`tempToken`, `code`)
 - `GET /api/admin/licenses` - Get all licenses
 - `GET /api/admin/licenses/:id` - Get single license
 - `POST /api/admin/licenses` - Create license
 - `PUT /api/admin/licenses/:id` - Update license
 - `POST /api/admin/licenses/:id/revoke` - Revoke license
 - `GET /api/admin/dashboard/stats` - Get dashboard statistics
-- `GET /api/admin/audit-logs` - Get audit logs
 
 ### POS Integration Endpoints
 
 - `POST /api/license/validate` - Validate license (activation check)
 - `GET /api/license/status` - Periodic status check
 
-## License Key Format
+## Deployment
 
-Format: `HK-XXXX-XXXX-XXXX`
+### GitHub Deployment
 
-Example: `HK-A1B2-C3D4-E5F6`
+1. **Push to GitHub:**
+   ```bash
+   git add .
+   git commit -m "Your changes"
+   git push origin main
+   ```
+
+2. **On VPS:**
+   ```bash
+   cd /var/www/license-admin
+   git pull origin main
+   pm2 restart license-admin
+   ```
+
+### Production Setup
+
+See `scripts/deploy-vps-from-github.sh` for automated deployment script.
 
 ## Security Notes
 
 - Change default admin password in production
 - Use strong JWT secret in production
 - Enable HTTPS in production
-- Use SSL for database connection in production
 - Device IDs are hashed before storage
-
-## Deployment
-
-1. Set `NODE_ENV=production` in `.env`
-2. Build frontend: `npm run build`
-3. Configure reverse proxy (nginx) for HTTPS
-4. Set up SSL certificates
-5. Configure database with SSL
-6. Update CORS_ORIGIN in `.env`
-7. Backend runs on port 3001 (frontend on 3000)
 
 ## License
 

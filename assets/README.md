@@ -16,3 +16,4 @@ Use this folder for:
 Frontend assets (images, fonts, etc.) should go in `frontend/public/` or `frontend/src/assets/` to be included in the build process.
 
 
+

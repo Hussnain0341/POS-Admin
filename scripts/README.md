@@ -28,3 +28,4 @@ node scripts/setup-admin.js admin mypassword
 This will output the SQL statement to insert/update the admin user.
 
 
+

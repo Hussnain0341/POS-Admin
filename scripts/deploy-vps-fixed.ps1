@@ -284,3 +284,4 @@ Write-Host "Upload command:" -ForegroundColor Cyan
 Write-Host $uploadCommand -ForegroundColor Yellow
 Write-Host ""
 
+

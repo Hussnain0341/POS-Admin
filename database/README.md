@@ -1,61 +1,51 @@
-# Database Setup Files
+# Database Setup
 
-This folder contains all database-related files for the HisaabKitab License Admin System.
+This folder contains **ONE complete SQL file** that sets up everything.
 
 ## 📁 Files
 
-### Setup Scripts (Run in Order)
-
-1. **`01_CREATE_DATABASE.sql`**
-   - Creates the database `hisaabkitab_license`
-   - Run this FIRST if database doesn't exist
-   - Run in pgAdmin while connected to any database (usually 'postgres')
-
-2. **`02_COMPLETE_SETUP.sql`** ⭐ **MAIN SCRIPT**
-   - Complete end-to-end setup script
-   - Creates all tables, indexes, functions, triggers
-   - Sets up default admin user
-   - Grants permissions
-   - Verifies everything
-   - **Run this in pgAdmin after database is created**
-
-3. **`COMPLETE_SETUP.sql`**
-   - Same as `02_COMPLETE_SETUP.sql` (alternative name)
-   - Use either one
-
-4. **`schema.sql`**
-   - Original schema file (used by Node.js scripts)
-   - You can use this if you prefer the Node.js setup method
-
-### Documentation
-
-- **`SETUP_INSTRUCTIONS.md`** - Step-by-step pgAdmin instructions
-- **`README.md`** - This file
+- **`SETUP.sql`** ⭐ **THE ONLY FILE YOU NEED**
+  - Complete database setup script
+  - Creates database (instructions included)
+  - Creates all tables (AdminUsers, Licenses, Activations, AuditLogs, login_2fa_codes)
+  - Creates all indexes, functions, triggers
+  - Sets up default admin user
+  - Grants permissions
+  - Verifies everything
 
 ## 🚀 Quick Start
 
-### Method 1: Using pgAdmin (Recommended)
+### Step 1: Create Database (if it doesn't exist)
 
-1. Open pgAdmin
-2. Run `01_CREATE_DATABASE.sql` (if database doesn't exist)
-3. Run `02_COMPLETE_SETUP.sql` on the database
-4. Done! ✅
+**In pgAdmin:**
+1. Right-click **"Databases"** → **"Query Tool"**
+2. Run this command:
+   ```sql
+   CREATE DATABASE hisaabkitab_license;
+   ```
+3. Click **Execute** (F5)
 
-### Method 2: Using Node.js Scripts
+### Step 2: Run SETUP.sql
 
-1. Create database manually or use `01_CREATE_DATABASE.sql`
-2. Run: `npm run init-db`
-3. Done! ✅
+**In pgAdmin:**
+1. Right-click the **`hisaabkitab_license`** database → **"Query Tool"**
+2. Open **`SETUP.sql`**
+3. Copy and paste the entire file (or open it directly)
+4. Click **Execute** (F5)
+5. Check the **"Messages"** tab - you should see: `DATABASE SETUP COMPLETE! ✅`
+
+**Done!** ✅
 
 ## 📋 What Gets Created
 
-- **4 Tables:**
-  - `AdminUsers` - Admin accounts
-  - `Licenses` - License records
-  - `Activations` - Device activations
-  - `AuditLogs` - System audit trail
+- **5 Tables:**
+  - `adminusers` - Admin accounts
+  - `licenses` - License records
+  - `activations` - Device activations
+  - `auditlogs` - System audit trail
+  - `login_2fa_codes` - Two-factor authentication codes
 
-- **13+ Indexes** for performance
+- **15+ Indexes** for performance
 
 - **2 Functions:**
   - Auto-update timestamps
@@ -68,49 +58,68 @@ This folder contains all database-related files for the HisaabKitab License Admi
 - **1 Default Admin User:**
   - Username: `admin`
   - Password: `admin123`
-  - ⚠️ Change this in production!
-
-## 🔧 Usage
-
-### In pgAdmin:
-
-1. **Create Database:**
-   - Right-click "Databases" → Query Tool
-   - Open `01_CREATE_DATABASE.sql`
-   - Execute (F5)
-
-2. **Setup Everything:**
-   - Right-click `hisaabkitab_license` database → Query Tool
-   - Open `02_COMPLETE_SETUP.sql`
-   - Execute (F5)
-
-3. **Verify:**
-   - Check "Messages" tab for success messages
-   - Should see: "DATABASE SETUP COMPLETE! ✅"
+  - ⚠️ **Change this password in production!**
 
 ## ✅ Verification
 
-After running the setup script, verify with:
+After running `SETUP.sql`, check the Messages tab. You should see:
 
-```sql
--- Check tables
-SELECT table_name FROM information_schema.tables 
-WHERE table_schema = 'public' ORDER BY table_name;
-
--- Check admin user
-SELECT username, role FROM AdminUsers;
+```
+✅ All 5 tables created successfully!
+✅ Indexes created successfully!
+✅ Default admin user created successfully!
+DATABASE SETUP COMPLETE! ✅
 ```
 
-Expected output:
-- 4 tables: `adminusers`, `activations`, `auditlogs`, `licenses`
-- 1 admin user: `admin` / `superadmin`
+## 🔐 Two-Factor Authentication
+
+The system includes 2FA. After login with username/password, a 6-digit code is sent to `TWO_FA_EMAIL` (configured in `backend/.env`).
+
+**To enable 2FA:**
+1. Configure SMTP in `backend/.env` (see `backend/ENV_2FA_SMTP.txt`)
+2. Set `TWO_FA_EMAIL=hussnain0341@gmail.com` (or your email)
+3. Restart the backend
 
 ## 🐛 Troubleshooting
 
-See `SETUP_INSTRUCTIONS.md` for detailed troubleshooting guide.
+### Error: "database does not exist"
+- Run Step 1 above to create the database first
 
-## 📚 Related Files
+### Error: "relation already exists"
+- This is OK! The script uses `CREATE TABLE IF NOT EXISTS`
+- It won't overwrite existing data
 
-- `../scripts/init-db.js` - Node.js initialization script
-- `../scripts/test-database.js` - Database connection test
-- `../backend/config/database.js` - Database connection config
+### Error: "permission denied"
+- Make sure you're connected as `postgres` user (or a superuser)
+- Or grant permissions manually
+
+### Tables not showing up
+- Refresh pgAdmin (right-click database → Refresh)
+- Check the Messages tab for errors
+
+## 📚 Next Steps
+
+After database setup:
+
+1. **Configure `.env`:**
+   - Update `backend/.env` with database credentials
+   - Add SMTP config for 2FA (see `backend/ENV_2FA_SMTP.txt`)
+
+2. **Start the application:**
+   ```bash
+   npm run dev
+   ```
+
+3. **Login:**
+   - Go to http://localhost:3000
+   - Username: `admin`
+   - Password: `admin123`
+   - Enter 6-digit code from email
+
+## 🔄 Re-running SETUP.sql
+
+Safe to run multiple times! It uses `IF NOT EXISTS` checks, so:
+- ✅ Won't duplicate data
+- ✅ Won't break existing records
+- ✅ Will update admin user if needed
+- ✅ Will create missing tables/indexes
