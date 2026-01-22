@@ -71,3 +71,4 @@ deploy-package/
 !fix-admin-password-vps.sh
 !diagnose-and-fix-login.sh
 !test-login-endpoint.sh
+!fix-password-hash-final.sh
