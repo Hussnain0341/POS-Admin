@@ -52,23 +52,6 @@ router.post('/login', [
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // 2FA DISABLED - Return token directly
-    // To enable 2FA, uncomment the code below and comment out the direct token return
-    
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key-change-in-production',
-      { expiresIn: '24h' }
-    );
-
-    await auditLog('login_success', { username, userId: user.id }, null, req);
-
-    res.json({ 
-      token, 
-      user: { id: user.id, username: user.username, role: user.role } 
-    });
-
-    /* 2FA CODE (DISABLED) - Uncomment to enable:
     // 2FA ENABLED - Generate code, store, send email
     const code = generate2FACode();
     const tempToken = uuidv4();
@@ -101,6 +84,22 @@ router.post('/login', [
       tempToken,
       email: twoFAEmail,
       message: `Verification code sent to ${twoFAEmail}. Check your inbox.`
+    });
+
+    /* 2FA DISABLED - Direct token return (commented out)
+    // To disable 2FA, uncomment the code below and comment out the 2FA code above
+    
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+      { expiresIn: '24h' }
+    );
+
+    await auditLog('login_success', { username, userId: user.id }, null, req);
+
+    res.json({ 
+      token, 
+      user: { id: user.id, username: user.username, role: user.role } 
     });
     */
   } catch (error) {
