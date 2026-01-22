@@ -76,3 +76,4 @@ deploy-package/
 !verify-login-works.sh
 !fix-truncated-hash.sh
 !update-server-code.sh
+!enable-2fa-setup.sh
