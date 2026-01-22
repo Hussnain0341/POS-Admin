@@ -72,3 +72,5 @@ deploy-package/
 !diagnose-and-fix-login.sh
 !test-login-endpoint.sh
 !fix-password-hash-final.sh
+!debug-login-issue.sh
+!verify-login-works.sh
