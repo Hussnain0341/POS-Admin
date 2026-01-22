@@ -1,12 +1,18 @@
 const { Pool } = require('pg');
 
 // Create PostgreSQL connection pool
+const dbPassword = process.env.DB_PASSWORD || '';
+if (!dbPassword || typeof dbPassword !== 'string') {
+  console.error('Database password is missing or invalid. Check your .env file.');
+  process.exit(1);
+}
+
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
+  port: parseInt(process.env.DB_PORT) || 5432,
   database: process.env.DB_NAME || 'license_admin',
   user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
+  password: String(dbPassword), // Ensure it's a string
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
