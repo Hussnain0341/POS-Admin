@@ -64,3 +64,4 @@ deploy-package/
 *.sh
 !scripts/*.sh
 !deploy-vps-auto.sh
+!cleanup-vps.sh
