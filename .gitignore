@@ -74,3 +74,4 @@ deploy-package/
 !fix-password-hash-final.sh
 !debug-login-issue.sh
 !verify-login-works.sh
+!fix-truncated-hash.sh
