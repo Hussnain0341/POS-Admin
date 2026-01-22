@@ -69,3 +69,4 @@ deploy-package/
 !fix-login-issue.sh
 !fix-login-simple.sh
 !fix-admin-password-vps.sh
+!diagnose-and-fix-login.sh
