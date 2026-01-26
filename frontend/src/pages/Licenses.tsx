@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { licensesAPI, License } from '../services/api';
 import LicenseForm from '../components/LicenseForm';
-import { MdAdd, MdSearch, MdFilterList, MdVisibility, MdBlock, MdRefresh, MdClose, MdVpnKey } from 'react-icons/md';
+import { MdAdd, MdSearch, MdVisibility, MdBlock, MdRefresh, MdClose, MdVpnKey, MdCancel } from 'react-icons/md';
 import toast from 'react-hot-toast';
 
 const Licenses: React.FC = () => {
@@ -33,7 +33,8 @@ const Licenses: React.FC = () => {
 
   useEffect(() => {
     fetchLicenses();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.status, filters.tenantName, filters.licenseKey]);
 
   const handleCreate = async (licenseData: Partial<License>) => {
     try {
@@ -61,8 +62,40 @@ const Licenses: React.FC = () => {
     }
   };
 
-  const handleFilter = () => {
-    fetchLicenses();
+  const handleDelete = async (id: string, licenseKey: string, tenantName: string) => {
+    const confirmMessage = `⚠️ WARNING: This will permanently delete the license!\n\n` +
+      `License Key: ${licenseKey}\n` +
+      `Tenant: ${tenantName}\n\n` +
+      `This action will:\n` +
+      `• Permanently delete the license from the database\n` +
+      `• Delete all associated activations\n` +
+      `• Delete all audit logs for this license\n` +
+      `• This action CANNOT be undone\n\n` +
+      `Are you absolutely sure you want to delete this license?`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    // Double confirmation
+    if (!window.confirm('⚠️ FINAL WARNING: This will permanently delete the license. Type "DELETE" in the next prompt to confirm.')) {
+      return;
+    }
+
+    const userInput = window.prompt('Type "DELETE" (all caps) to confirm deletion:');
+    if (userInput !== 'DELETE') {
+      toast.error('Deletion cancelled. You must type "DELETE" to confirm.');
+      return;
+    }
+
+    try {
+      await licensesAPI.delete(id);
+      toast.success('License deleted successfully');
+      fetchLicenses();
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.error || 'Failed to delete license';
+      toast.error(errorMsg);
+    }
   };
 
   const handleResetFilters = () => {
@@ -148,13 +181,6 @@ const Licenses: React.FC = () => {
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
-            <button
-              onClick={handleFilter}
-              className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition flex items-center gap-2"
-            >
-              <MdFilterList className="w-4 h-4" />
-              Filter
-            </button>
             <button
               onClick={handleResetFilters}
               className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
@@ -288,12 +314,21 @@ const Licenses: React.FC = () => {
                             {license.status === 'active' && (
                               <button
                                 onClick={() => handleRevoke(license.id)}
-                                className="text-red-600 hover:text-red-800 flex items-center gap-1"
+                                className="text-orange-600 hover:text-orange-800 flex items-center gap-1"
+                                title="Revoke License"
                               >
                                 <MdBlock className="w-4 h-4" />
                                 Revoke
                               </button>
                             )}
+                            <button
+                              onClick={() => handleDelete(license.id, license.licenseKey, license.tenantName)}
+                              className="text-red-600 hover:text-red-800 flex items-center gap-1"
+                              title="Delete License Permanently"
+                            >
+                              <MdCancel className="w-4 h-4" />
+                              Delete
+                            </button>
                           </div>
                         </td>
                       </tr>

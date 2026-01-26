@@ -118,6 +118,10 @@ export const licensesAPI = {
     const response = await api.post(`/admin/licenses/${id}/revoke`);
     return response.data;
   },
+  delete: async (id: string) => {
+    const response = await api.delete(`/admin/licenses/${id}`);
+    return response.data;
+  },
 };
 
 export const dashboardAPI = {
@@ -132,6 +136,115 @@ export const auditAPI = {
     const response = await api.get('/admin/audit-logs', {
       params: { licenseId, page, limit },
     });
+    return response.data;
+  },
+};
+
+export interface POSVersion {
+  id: string;
+  version: string;
+  platform: string;
+  filename: string;
+  filepath: string;
+  filesize: number;
+  checksum_sha256: string;
+  download_url: string;
+  mandatory: boolean;
+  release_notes?: string;
+  status: 'draft' | 'live' | 'archived' | 'rollback';
+  uploaded_by?: string;
+  uploaded_by_username?: string;
+  uploaded_at: string;
+  published_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateLog {
+  id: string;
+  version_id?: string;
+  version?: string;
+  admin_user_id?: string;
+  admin_username?: string;
+  action: 'UPLOAD' | 'PUBLISH' | 'ROLLBACK' | 'ARCHIVE' | 'SET_LIVE';
+  status: 'SUCCESS' | 'FAILED';
+  message?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface LatestVersion {
+  version: string;
+  download_url: string;
+  checksum: string;
+  mandatory: boolean;
+  release_date: string;
+}
+
+export const posUpdatesAPI = {
+  // Public API (for POS app) - uses separate axios instance without auth
+  getLatest: async (platform: string = 'windows'): Promise<LatestVersion> => {
+    const publicApi = axios.create({
+      baseURL: process.env.REACT_APP_API_URL?.replace('/api', '') || 
+        (process.env.NODE_ENV === 'production' 
+          ? 'https://api.zentryasolutions.com'
+          : 'http://localhost:3001'),
+    });
+    const response = await publicApi.get('/api/pos-updates/latest', {
+      params: { platform },
+    });
+    return response.data;
+  },
+
+  // Admin APIs
+  getAllVersions: async (filters?: {
+    platform?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const response = await api.get('/pos-updates/versions', { params: filters });
+    return response.data;
+  },
+
+  getVersionById: async (id: string): Promise<POSVersion> => {
+    const response = await api.get(`/pos-updates/versions/${id}`);
+    return response.data;
+  },
+
+  uploadVersion: async (formData: FormData) => {
+    const response = await api.post('/pos-updates/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  publishVersion: async (version: string) => {
+    const response = await api.post(`/pos-updates/publish/${version}`);
+    return response.data;
+  },
+
+  rollbackVersion: async (version: string) => {
+    const response = await api.post(`/pos-updates/rollback/${version}`);
+    return response.data;
+  },
+
+  archiveVersion: async (version: string) => {
+    const response = await api.post(`/pos-updates/archive/${version}`);
+    return response.data;
+  },
+
+  getLogs: async (versionId?: string, page?: number, limit?: number) => {
+    const response = await api.get('/pos-updates/logs', {
+      params: { versionId, page, limit },
+    });
+    return response.data;
+  },
+
+  deleteVersion: async (version: string) => {
+    const response = await api.delete(`/pos-updates/versions/${version}`);
     return response.data;
   },
 };
