@@ -80,9 +80,42 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// Static file serving for POS updates (must be before API routes)
+const UPDATES_BASE_DIR = process.env.UPDATES_BASE_DIR || 
+  (process.env.NODE_ENV === 'production' 
+    ? '/var/www/updates/hisaabkitab'
+    : path.join(__dirname, '../uploads/pos-updates'));
+if (fs.existsSync(UPDATES_BASE_DIR)) {
+  app.use('/pos-updates/files', express.static(UPDATES_BASE_DIR, {
+    setHeaders: (res, filepath) => {
+      // Set appropriate headers for file downloads
+      res.setHeader('Content-Disposition', 'attachment');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    }
+  }));
+} else {
+  // Create directory if it doesn't exist (for development)
+  if (process.env.NODE_ENV !== 'production') {
+    fs.mkdirSync(UPDATES_BASE_DIR, { recursive: true });
+    fs.mkdirSync(path.join(UPDATES_BASE_DIR, 'windows'), { recursive: true });
+    app.use('/pos-updates/files', express.static(UPDATES_BASE_DIR, {
+      setHeaders: (res, filepath) => {
+        res.setHeader('Content-Disposition', 'attachment');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+      }
+    }));
+  }
+}
+
 // API Routes
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/license', require('./routes/license'));
+
+// POS Updates Routes
+// Public route (for POS app) - no /api prefix
+app.use('/pos-updates', require('./routes/pos-updates'));
+// Admin routes (for admin panel) - with /api prefix
+app.use('/api/pos-updates', require('./routes/pos-updates'));
 
 // Health check
 app.get('/health', (req, res) => {

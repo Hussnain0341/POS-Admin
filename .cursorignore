@@ -1,0 +1,293 @@
+# ============================================
+# CURSOR IGNORE - COST OPTIMIZATION
+# ============================================
+# This file prevents Cursor from indexing/reading
+# unnecessary files, reducing token usage dramatically.
+# ============================================
+
+# ============================================
+# DEPENDENCIES & PACKAGE MANAGERS
+# ============================================
+# These are auto-generated and massive (millions of files)
+node_modules/
+**/node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.npm/
+.yarn/
+.pnp/
+
+# ============================================
+# BUILD OUTPUT & COMPILED FILES
+# ============================================
+# Auto-generated build artifacts
+dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+.next/
+.vite/
+.cache/
+.turbo/
+*.tsbuildinfo
+*.js.map
+*.css.map
+*.min.js
+*.min.css
+*.bundle.js
+
+# ============================================
+# LOGS & TEMPORARY FILES
+# ============================================
+# Logs are large and change frequently
+*.log
+**/*.log
+logs/
+**/logs/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ============================================
+# STATIC ASSETS (Images, Videos, Fonts)
+# ============================================
+# Large binary files not needed for code analysis
+# Keep: public/index.html, public/manifest.json (small config files)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.webp
+*.pdf
+*.mp4
+*.mp3
+*.avi
+*.mov
+*.woff
+*.woff2
+*.ttf
+*.eot
+*.otf
+assets/
+**/assets/
+# Keep essential public files, ignore large assets
+public/**/*.png
+public/**/*.jpg
+public/**/*.gif
+public/**/*.svg
+public/**/*.ico
+public/**/*.woff
+public/**/*.woff2
+public/**/*.ttf
+
+# ============================================
+# ENVIRONMENT & SECRETS
+# ============================================
+# Should never be indexed for security
+.env
+.env.*
+!.env.example
+*.env
+**/.env
+**/.env.*
+secrets/
+**/secrets/
+
+# ============================================
+# VERSION CONTROL & IDE
+# ============================================
+# Already tracked by Git, no need to index
+.git/
+.gitignore
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# ============================================
+# TESTING & COVERAGE
+# ============================================
+# Generated test reports
+coverage/
+**/coverage/
+.nyc_output/
+*.lcov
+.jest/
+__tests__/coverage/
+
+# ============================================
+# DEPLOYMENT SCRIPTS (Temporary/One-time use)
+# ============================================
+# These are one-time deployment scripts, not core code
+deploy-vps-auto.sh
+cleanup-vps.sh
+fix-*.sh
+diagnose-*.sh
+debug-*.sh
+update-server-code.sh
+verify-*.sh
+enable-*.sh
+fix-*.ps1
+deploy-*.ps1
+deploy-*.sh
+test-*.sh
+**/deploy-*.sh
+**/fix-*.sh
+**/cleanup-*.sh
+
+# ============================================
+# TEST & DIAGNOSTIC SCRIPTS (One-time use)
+# ============================================
+# Test and diagnostic scripts - not core code
+scripts/test-*.js
+scripts/diagnose-*.js
+scripts/check-*.js
+scripts/fix-*.js
+scripts/verify-*.js
+scripts/quick-test-*.js
+# Keep essential utilities: generate-*, init-*, setup-*, backup-*, production-*
+
+# ============================================
+# DOCUMENTATION (Keep only essential)
+# ============================================
+# Many markdown files are redundant or temporary
+# Keep: README.md (root), LICENSE, CHANGELOG.md
+# Ignore: Temporary guides and fix documentation
+CLEANUP_COMMANDS.md
+DEPLOYMENT_AUTO.md
+FIX_API_URL.md
+FIX_PASSWORD_GUIDE.md
+QUICK_FIX_COMMANDS.md
+QUICK_FIX_INVALID_CREDENTIALS.md
+RESTART_INSTRUCTIONS.md
+LOCAL_SETUP.md
+LICENSE_API_DOCUMENTATION.md
+LICENSE_API_TEST.md
+CHANGE_PASSWORD_GUIDE.md
+# Keep backend/README.md and database/README.md (small, essential)
+
+# ============================================
+# BACKUP & OLD FILES
+# ============================================
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+backup/
+**/backup/
+old/
+**/old/
+
+# ============================================
+# DATABASE DUMPS & EXPORTS
+# ============================================
+*.sql.backup
+*.dump
+*.sql.gz
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================
+# COMPILED BINARIES
+# ============================================
+*.exe
+*.dll
+*.so
+*.dylib
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.class
+*.jar
+*.war
+
+# ============================================
+# OS SPECIFIC
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ============================================
+# MISC TEMPORARY
+# ============================================
+*.pid
+*.seed
+*.pid.lock
+.npm
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# ============================================
+# ADDITIONAL OPTIMIZATIONS
+# ============================================
+# Test files (not needed for production code analysis)
+*.test.js
+*.test.ts
+*.test.tsx
+*.spec.js
+*.spec.ts
+*.spec.tsx
+**/__tests__/
+**/__mocks__/
+**/test/
+**/tests/
+*.test.*
+*.spec.*
+
+# Frontend build artifacts
+frontend/build/
+frontend/.cache/
+frontend/.vite/
+
+# Backend logs and temp
+backend/logs/
+backend/*.log
+backend/.env.local
+backend/.env.*.local
+
+# Empty or minimal files
+*.txt
+!README.txt
+backend/ENV_2FA_SMTP.txt
+
+# Git push scripts (keep only one)
+push-to-github.ps1
+push-to-github.bat
+# Keep: push-to-github-simple.ps1
+
+# Optimization documentation (temporary)
+OPTIMIZATION_COMPLETE.md
+
+# ============================================
+# KEEP THESE (Essential for development)
+# ============================================
+# These files are explicitly kept for development
+# README.md (root level)
+# package.json (all levels)
+# tsconfig.json
+# .gitignore
+# ecosystem.config.js
+# public/index.html
+# public/manifest.json
+# database/SETUP.sql
+

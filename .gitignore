@@ -77,4 +77,3 @@ deploy-package/
 !fix-truncated-hash.sh
 !update-server-code.sh
 !enable-2fa-setup.sh
-!change-admin-password.sh

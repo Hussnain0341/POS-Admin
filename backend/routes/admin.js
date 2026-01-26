@@ -217,7 +217,37 @@ router.get('/licenses', authenticateToken, async (req, res) => {
     params.push(limit, offset);
 
     const result = await pool.query(query, params);
-    const countResult = await pool.query('SELECT COUNT(*) FROM licenses');
+    
+    // Get total count with same filters
+    let countQuery = 'SELECT COUNT(*) FROM licenses WHERE 1=1';
+    const countParams = [];
+    let countParamCount = 0;
+
+    if (status) {
+      countParamCount++;
+      countQuery += ` AND status = $${countParamCount}`;
+      countParams.push(status);
+    }
+
+    if (tenantName) {
+      countParamCount++;
+      countQuery += ` AND tenantname ILIKE $${countParamCount}`;
+      countParams.push(`%${tenantName}%`);
+    }
+
+    if (plan) {
+      countParamCount++;
+      countQuery += ` AND plan = $${countParamCount}`;
+      countParams.push(plan);
+    }
+
+    if (licenseKey) {
+      countParamCount++;
+      countQuery += ` AND licensekey ILIKE $${countParamCount}`;
+      countParams.push(`%${licenseKey}%`);
+    }
+
+    const countResult = await pool.query(countQuery, countParams);
 
     // Map lowercase columns to camelCase for frontend
     const licenses = result.rows.map(row => ({
@@ -511,6 +541,61 @@ router.post('/licenses/:id/revoke', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete license
+router.delete('/licenses/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminUserId = req.user.id;
+
+    // Check if license exists
+    const licenseResult = await pool.query('SELECT * FROM licenses WHERE id = $1', [id]);
+    if (licenseResult.rows.length === 0) {
+      return res.status(404).json({ error: 'License not found' });
+    }
+
+    const license = licenseResult.rows[0];
+
+    // Check if license has active activations
+    const activationsResult = await pool.query(
+      'SELECT COUNT(*) as count FROM activations WHERE licenseid = $1 AND status = $2',
+      [id, 'active']
+    );
+    const activeActivations = parseInt(activationsResult.rows[0].count);
+
+    if (activeActivations > 0) {
+      return res.status(400).json({ 
+        error: `Cannot delete license with ${activeActivations} active device activation(s). Revoke the license first or wait for activations to expire.` 
+      });
+    }
+
+    // Delete all activations first (CASCADE should handle this, but being explicit)
+    await pool.query('DELETE FROM activations WHERE licenseid = $1', [id]);
+
+    // Delete audit logs related to this license
+    await pool.query('DELETE FROM auditlogs WHERE licenseid = $1', [id]);
+
+    // Delete the license
+    await pool.query('DELETE FROM licenses WHERE id = $1', [id]);
+
+    await auditLog('license_deleted', { 
+      licenseKey: license.licensekey, 
+      tenantName: license.tenantname 
+    }, null, req);
+
+    res.json({
+      message: 'License deleted successfully',
+      deletedLicense: {
+        id: license.id,
+        licenseKey: license.licensekey,
+        tenantName: license.tenantname
+      }
+    });
+  } catch (error) {
+    console.error('Delete license error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get dashboard stats
 router.get('/dashboard/stats', authenticateToken, async (req, res) => {
   try {
@@ -563,6 +648,73 @@ router.get('/audit-logs', authenticateToken, async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Get audit logs error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Change password
+router.post('/change-password', authenticateToken, [
+  body('currentPassword').notEmpty().withMessage('Current password is required'),
+  body('newPassword')
+    .notEmpty().withMessage('New password is required')
+    .isLength({ min: 8 }).withMessage('New password must be at least 8 characters')
+    .matches(/[A-Z]/).withMessage('New password must contain at least one uppercase letter')
+    .matches(/[a-z]/).withMessage('New password must contain at least one lowercase letter')
+    .matches(/\d/).withMessage('New password must contain at least one number')
+    .matches(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/).withMessage('New password must contain at least one special character')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id; // From authenticateToken middleware
+
+    // Get current user
+    const userResult = await pool.query(
+      'SELECT id, username, passwordhash as "passwordHash" FROM adminusers WHERE id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Verify current password
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValid) {
+      await auditLog('password_change_failed', { userId, reason: 'invalid_current_password' }, null, req);
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Check if new password is same as current
+    const isSame = await bcrypt.compare(newPassword, user.passwordHash);
+    if (isSame) {
+      return res.status(400).json({ error: 'New password must be different from current password' });
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password in database
+    await pool.query(
+      'UPDATE adminusers SET passwordhash = $1 WHERE id = $2',
+      [newPasswordHash, userId]
+    );
+
+    await auditLog('password_changed', { userId, username: user.username }, null, req);
+
+    res.json({
+      message: 'Password changed successfully',
+      username: user.username
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
