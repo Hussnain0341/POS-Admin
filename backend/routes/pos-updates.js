@@ -46,16 +46,15 @@ ensureDirectories();
 // ============================================
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const version = req.body.version || 'temp';
-    const platform = req.body.platform || 'windows';
-    const versionDir = path.join(UPDATES_BASE_DIR, platform, version);
+    // Use temp directory first, will be moved after validation
+    const tempDir = path.join(UPDATES_BASE_DIR, 'temp');
     
-    // Create version directory
-    if (!fs.existsSync(versionDir)) {
-      fs.mkdirSync(versionDir, { recursive: true });
+    // Create temp directory
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
     }
     
-    cb(null, versionDir);
+    cb(null, tempDir);
   },
   filename: (req, file, cb) => {
     // Keep original filename
@@ -267,8 +266,18 @@ router.post('/upload', authenticateToken, upload.single('installer'), [
       return res.status(400).json({ error: 'Version already exists' });
     }
 
+    // Move file from temp to version directory
+    const versionDir = path.join(UPDATES_BASE_DIR, platform, version);
+    if (!fs.existsSync(versionDir)) {
+      fs.mkdirSync(versionDir, { recursive: true });
+    }
+    const finalFilePath = path.join(versionDir, req.file.filename);
+    
+    // Move file to final location
+    fs.renameSync(req.file.path, finalFilePath);
+
     // Calculate checksum
-    const checksum = await calculateChecksum(req.file.path);
+    const checksum = await calculateChecksum(finalFilePath);
 
     // Generate download URL
     const downloadUrl = `${UPDATES_PUBLIC_URL}/${platform}/${version}/${req.file.filename}`;
@@ -285,7 +294,7 @@ router.post('/upload', authenticateToken, upload.single('installer'), [
         version,
         platform,
         req.file.filename,
-        req.file.path,
+        finalFilePath,
         req.file.size,
         checksum,
         downloadUrl,
