@@ -234,6 +234,47 @@ router.get('/versions/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /pos-updates/debug/file/:version/:filename - Debug file path (Admin only)
+router.get('/debug/file/:version/:filename', authenticateToken, async (req, res) => {
+  try {
+    const { version, filename } = req.params;
+    const decodedFilename = decodeURIComponent(filename);
+    const platform = 'windows'; // Default
+    
+    const expectedPath = path.join(UPDATES_BASE_DIR, platform, version, decodedFilename);
+    const fileExists = fs.existsSync(expectedPath);
+    
+    // Get database record
+    const dbRecord = await pool.query(
+      'SELECT * FROM pos_versions WHERE version = $1 AND filename = $2',
+      [version, decodedFilename]
+    );
+    
+    res.json({
+      requestedFilename: filename,
+      decodedFilename: decodedFilename,
+      expectedPath: expectedPath,
+      fileExists: fileExists,
+      baseDirectory: UPDATES_BASE_DIR,
+      databaseRecord: dbRecord.rows[0] || null,
+      directoryContents: fileExists ? null : (() => {
+        try {
+          const dirPath = path.join(UPDATES_BASE_DIR, platform, version);
+          if (fs.existsSync(dirPath)) {
+            return fs.readdirSync(dirPath);
+          }
+          return null;
+        } catch (e) {
+          return null;
+        }
+      })()
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST /pos-updates/upload - Upload new version
 router.post('/upload', authenticateToken, upload.single('installer'), [
   body('version').notEmpty().withMessage('Version is required'),
@@ -279,8 +320,9 @@ router.post('/upload', authenticateToken, upload.single('installer'), [
     // Calculate checksum
     const checksum = await calculateChecksum(finalFilePath);
 
-    // Generate download URL
-    const downloadUrl = `${UPDATES_PUBLIC_URL}/${platform}/${version}/${req.file.filename}`;
+    // Generate download URL (encode filename for URL safety)
+    const encodedFilename = encodeURIComponent(req.file.filename);
+    const downloadUrl = `${UPDATES_PUBLIC_URL}/${platform}/${version}/${encodedFilename}`;
 
     // Insert into database
     const result = await pool.query(

@@ -85,27 +85,74 @@ const UPDATES_BASE_DIR = process.env.UPDATES_BASE_DIR ||
   (process.env.NODE_ENV === 'production' 
     ? '/var/www/updates/hisaabkitab'
     : path.join(__dirname, '../uploads/pos-updates'));
-if (fs.existsSync(UPDATES_BASE_DIR)) {
-  app.use('/pos-updates/files', express.static(UPDATES_BASE_DIR, {
-    setHeaders: (res, filepath) => {
-      // Set appropriate headers for file downloads
-      res.setHeader('Content-Disposition', 'attachment');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-    }
-  }));
-} else {
-  // Create directory if it doesn't exist (for development)
-  if (process.env.NODE_ENV !== 'production') {
-    fs.mkdirSync(UPDATES_BASE_DIR, { recursive: true });
-    fs.mkdirSync(path.join(UPDATES_BASE_DIR, 'windows'), { recursive: true });
-    app.use('/pos-updates/files', express.static(UPDATES_BASE_DIR, {
-      setHeaders: (res, filepath) => {
-        res.setHeader('Content-Disposition', 'attachment');
-        res.setHeader('Cache-Control', 'public, max-age=3600');
-      }
-    }));
-  }
+
+// Ensure directory exists
+if (!fs.existsSync(UPDATES_BASE_DIR)) {
+  fs.mkdirSync(UPDATES_BASE_DIR, { recursive: true });
+  fs.mkdirSync(path.join(UPDATES_BASE_DIR, 'windows'), { recursive: true });
+  console.log(`Created updates directory: ${UPDATES_BASE_DIR}`);
 }
+
+// Log the base directory being used
+console.log(`POS Updates base directory: ${UPDATES_BASE_DIR}`);
+console.log(`POS Updates directory exists: ${fs.existsSync(UPDATES_BASE_DIR)}`);
+
+// Custom static file handler with better error handling and logging
+app.use('/pos-updates/files', (req, res, next) => {
+  // Decode URL to handle spaces and special characters
+  const decodedPath = decodeURIComponent(req.path);
+  const filePath = path.join(UPDATES_BASE_DIR, decodedPath.replace('/pos-updates/files/', ''));
+  
+  // Log the request for debugging
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`File request: ${req.path}`);
+    console.log(`Decoded path: ${decodedPath}`);
+    console.log(`Resolved file path: ${filePath}`);
+    console.log(`File exists: ${fs.existsSync(filePath)}`);
+  }
+  
+  // Check if file exists
+  if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+    // Set headers for file download
+    res.setHeader('Content-Disposition', `attachment; filename="${path.basename(filePath)}"`);
+    res.setHeader('Content-Type', 'application/x-msdownload');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    
+    // Stream the file
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+    
+    fileStream.on('error', (err) => {
+      console.error(`Error streaming file ${filePath}:`, err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error reading file' });
+      }
+    });
+  } else {
+    // File not found - log for debugging
+    console.error(`File not found: ${filePath}`);
+    console.error(`Requested path: ${req.path}`);
+    console.error(`Base directory: ${UPDATES_BASE_DIR}`);
+    
+    // Try to list directory contents for debugging
+    const dirPath = path.dirname(filePath);
+    if (fs.existsSync(dirPath)) {
+      try {
+        const files = fs.readdirSync(dirPath);
+        console.error(`Files in directory ${dirPath}:`, files);
+      } catch (err) {
+        console.error(`Error listing directory:`, err);
+      }
+    }
+    
+    res.status(404).json({ 
+      error: 'File not found',
+      requestedPath: req.path,
+      resolvedPath: filePath,
+      baseDirectory: UPDATES_BASE_DIR
+    });
+  }
+});
 
 // API Routes
 app.use('/api/admin', require('./routes/admin'));
