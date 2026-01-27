@@ -7,6 +7,9 @@ const { pool } = require('./config/database');
 
 const app = express();
 
+// Trust proxy (required for rate limiting behind Nginx)
+app.set('trust proxy', true);
+
 // Create logs directory if it doesn't exist
 const logsDir = path.join(__dirname, 'logs');
 if (!fs.existsSync(logsDir)) {
