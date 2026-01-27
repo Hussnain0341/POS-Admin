@@ -148,3 +148,4 @@ sudo -u postgres psql -d hisaabkitab_license -c "\dt pos_*"
 **Database:** `hisaabkitab_license` (adjust if different)  
 **SQL File:** `/var/www/license-admin/database/04_POS_UPDATES.sql`
 
+

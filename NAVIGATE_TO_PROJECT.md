@@ -68,3 +68,4 @@ sudo -u postgres psql -d hisaabkitab_license -c "SELECT version, filepath FROM p
 
 **The file is fixed! Just navigate to `/var/www/license-admin` to work on your project.**
 
+

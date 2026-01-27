@@ -9,6 +9,7 @@ import UploadVersion from './pages/UploadVersion';
 import VersionHistory from './pages/VersionHistory';
 import VersionDetail from './pages/VersionDetail';
 import UpdateLogs from './pages/UpdateLogs';
+import ChangePassword from './pages/ChangePassword';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import { ToastProvider } from './components/Toast';
@@ -36,6 +37,7 @@ function App() {
           <Route path="updates/history" element={<VersionHistory />} />
           <Route path="updates/:id" element={<VersionDetail />} />
           <Route path="updates/logs" element={<UpdateLogs />} />
+          <Route path="change-password" element={<ChangePassword />} />
         </Route>
       </Routes>
     </Router>

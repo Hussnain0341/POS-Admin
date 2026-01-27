@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { MdDashboard, MdVpnKey, MdLogout, MdPerson, MdAdd } from 'react-icons/md';
+import { MdDashboard, MdVpnKey, MdLogout, MdPerson, MdAdd, MdLock } from 'react-icons/md';
 
 const Layout: React.FC = () => {
   const navigate = useNavigate();
@@ -74,6 +74,13 @@ const Layout: React.FC = () => {
                 <p className="text-xs text-gray-400 truncate capitalize">{user.role || 'Administrator'}</p>
               </div>
             </div>
+            <Link
+              to="/change-password"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg transition text-sm font-medium mb-2"
+            >
+              <MdLock className="w-4 h-4" />
+              Change Password
+            </Link>
             <button
               onClick={handleLogout}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 rounded-lg transition text-sm font-medium"

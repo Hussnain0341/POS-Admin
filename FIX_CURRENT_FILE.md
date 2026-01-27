@@ -61,3 +61,4 @@ curl -I http://localhost:3001/pos-updates/files/windows/1.0.0/nvm-setup.exe
 
 **Run the fix commands above to move the file, then test the download URL again!**
 
+

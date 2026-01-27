@@ -180,3 +180,4 @@ If after adding the setting it still doesn't show up:
 
 **The key is adding `client_max_body_size 500M;` INSIDE the HTTPS server block in `/etc/nginx/sites-available/slack-api`**
 
+

@@ -7,7 +7,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { auditLog } = require('../middleware/audit');
 const { generateLicenseKey, validateLicenseKeyFormat } = require('../utils/licenseKey');
 const { v4: uuidv4 } = require('uuid');
-const { send2FACode } = require('../services/email');
+const { send2FACode, sendPasswordChange2FA } = require('../services/email');
 
 const router = express.Router();
 
@@ -174,6 +174,170 @@ router.post('/verify-2fa', [
       });
     }
     console.error('Verify 2FA error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/admin/change-password/request - Request password change (verify current password, send 2FA)
+router.post('/change-password/request', authenticateToken, [
+  body('currentPassword').notEmpty().withMessage('Current password is required'),
+  body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    // Get user from database
+    const userResult = await pool.query(
+      'SELECT id, username, passwordhash as "passwordHash" FROM adminusers WHERE id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Verify current password
+    if (!user.passwordHash) {
+      return res.status(500).json({ error: 'Password hash not found' });
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValid) {
+      await auditLog('password_change_failed', { userId, reason: 'invalid_current_password' }, userId, req);
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Check if new password is same as current
+    const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
+    if (isSamePassword) {
+      return res.status(400).json({ error: 'New password must be different from current password' });
+    }
+
+    // Generate 2FA code
+    const code = generate2FACode();
+    const tempToken = uuidv4();
+    const twoFAEmail = process.env.TWO_FA_EMAIL || 'hussnain0341@gmail.com';
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Hash the new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+    
+    // Clean old pending password change 2FA for this user
+    await pool.query(
+      'DELETE FROM login_2fa_codes WHERE user_id = $1 AND temp_token LIKE $2',
+      [userId, 'pwd_change_%']
+    );
+
+    // Store 2FA code with prefix to distinguish from login 2FA
+    // Store new password hash in email field temporarily (format: "email|hash")
+    await pool.query(
+      `INSERT INTO login_2fa_codes (temp_token, user_id, code, email, expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [`pwd_change_${tempToken}`, userId, code, `${twoFAEmail}|${newPasswordHash}`, expiresAt]
+    );
+
+    // Send 2FA email
+    const emailResult = await sendPasswordChange2FA(code, user.username);
+    if (!emailResult.sent) {
+      await pool.query('DELETE FROM login_2fa_codes WHERE temp_token = $1', [`pwd_change_${tempToken}`]);
+      await auditLog('password_change_failed', { userId, reason: '2fa_email_failed' }, userId, req);
+      return res.status(503).json({
+        error: 'Could not send verification email. Please check SMTP configuration or try again later.',
+        detail: process.env.NODE_ENV === 'development' ? emailResult.error : undefined
+      });
+    }
+
+    await auditLog('password_change_2fa_sent', { userId, username: user.username }, userId, req);
+
+    res.json({
+      require2FA: true,
+      tempToken,
+      email: twoFAEmail,
+      message: `Verification code sent to ${twoFAEmail}. Check your inbox.`
+    });
+  } catch (error) {
+    console.error('Password change request error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/admin/change-password/verify - Verify 2FA and change password
+router.post('/change-password/verify', authenticateToken, [
+  body('tempToken').notEmpty().withMessage('Temporary token is required'),
+  body('code').matches(/^\d{6}$/).withMessage('Code must be 6 digits')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { tempToken, code } = req.body;
+    const userId = req.user.id;
+
+    // Find 2FA record
+    const result = await pool.query(
+      `SELECT l2fa.*, au.username, au.role
+       FROM login_2fa_codes l2fa
+       JOIN adminusers au ON l2fa.user_id = au.id
+       WHERE l2fa.temp_token = $1 AND l2fa.user_id = $2 AND l2fa.expires_at > NOW() AND l2fa.used_at IS NULL`,
+      [`pwd_change_${tempToken}`, userId]
+    );
+
+    if (result.rows.length === 0) {
+      await auditLog('password_change_failed', { userId, reason: 'invalid_or_expired_2fa' }, userId, req);
+      return res.status(401).json({ error: 'Invalid or expired verification code' });
+    }
+
+    const rec = result.rows[0];
+    
+    // Verify 2FA code
+    if (rec.code !== code) {
+      await auditLog('password_change_failed', { userId, reason: 'invalid_2fa_code' }, userId, req);
+      return res.status(401).json({ error: 'Invalid verification code' });
+    }
+
+    // Extract new password hash from email field (format: "email|hash")
+    const emailField = rec.email;
+    const parts = emailField.split('|');
+    if (parts.length !== 2) {
+      return res.status(500).json({ error: 'Password change data corrupted' });
+    }
+    const newPasswordHash = parts[1];
+
+    // Update password
+    await pool.query(
+      'UPDATE adminusers SET passwordhash = $1 WHERE id = $2',
+      [newPasswordHash, userId]
+    );
+
+    // Mark 2FA code as used
+    await pool.query(
+      'UPDATE login_2fa_codes SET used_at = CURRENT_TIMESTAMP WHERE temp_token = $1',
+      [`pwd_change_${tempToken}`]
+    );
+
+    // Clean up old 2FA codes for this user
+    await pool.query(
+      'DELETE FROM login_2fa_codes WHERE user_id = $1 AND expires_at < NOW()',
+      [userId]
+    );
+
+    await auditLog('password_change_success', { userId, username: rec.username }, userId, req);
+
+    res.json({
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('Password change verify error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

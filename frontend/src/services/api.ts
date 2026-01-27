@@ -249,5 +249,24 @@ export const posUpdatesAPI = {
   },
 };
 
+// Password Change API
+export const passwordAPI = {
+  requestPasswordChange: async (currentPassword: string, newPassword: string) => {
+    const response = await api.post('/admin/change-password/request', {
+      currentPassword,
+      newPassword,
+    });
+    return response.data;
+  },
+
+  verifyPasswordChange: async (tempToken: string, code: string) => {
+    const response = await api.post('/admin/change-password/verify', {
+      tempToken,
+      code,
+    });
+    return response.data;
+  },
+};
+
 export default api;
 

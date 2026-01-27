@@ -158,15 +158,18 @@ scripts/quick-test-*.js
 # Keep essential utilities: generate-*, init-*, setup-*, backup-*, production-*
 
 # ============================================
-# DOCUMENTATION - IGNORE ALL MARKDOWN FILES
+# DOCUMENTATION - ALL MARKDOWN FILES
 # ============================================
-# Ignore all .md files to reduce token usage
-# Only README.md files are kept (explicitly excluded below)
+# ALL .md files are ignored for cost optimization
+# Documentation is not needed for code analysis
 *.md
 **/*.md
-# Explicitly keep essential README files (but they're still ignored for cost)
-!README.md
-!**/README.md
+# Explicitly ignore all documentation files
+README.md
+**/README.md
+LICENSE.md
+CHANGELOG.md
+*.md
 
 # ============================================
 # BACKUP & OLD FILES

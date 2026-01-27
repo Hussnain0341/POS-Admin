@@ -134,3 +134,4 @@ sudo nginx -T | grep -B 5 -A 25 "listen 443" | grep -A 25 "api.zentryasolutions.
 
 This will show you the exact HTTPS server block that needs updating.
 
+
