@@ -572,7 +572,7 @@ router.post('/archive/:version', authenticateToken, async (req, res) => {
   }
 });
 
-// DELETE /pos-updates/versions/:version - Delete version (cannot delete live)
+// DELETE /pos-updates/versions/:version - Delete version (including live versions)
 router.delete('/versions/:version', authenticateToken, async (req, res) => {
   try {
     const { version } = req.params;
@@ -589,21 +589,7 @@ router.delete('/versions/:version', authenticateToken, async (req, res) => {
     }
 
     const versionRecord = versionResult.rows[0];
-
-    // Prevent deleting live versions
-    if (versionRecord.status === 'live') {
-      await logUpdateAction(
-        'DELETE',
-        versionRecord.id,
-        adminUserId,
-        'FAILED',
-        `Cannot delete live version ${version}. Rollback first.`,
-        {}
-      );
-      return res.status(400).json({ 
-        error: 'Cannot delete live version. Please rollback to a different version first, then delete this one.' 
-      });
-    }
+    const isLiveVersion = versionRecord.status === 'live';
 
     // Get file path
     const filePath = versionRecord.filepath;
@@ -634,14 +620,18 @@ router.delete('/versions/:version', authenticateToken, async (req, res) => {
       }
     }
 
-    // Log action
+    // Log action (with special note if it was a live version)
+    const logMessage = isLiveVersion 
+      ? `LIVE version ${version} deleted permanently - WARNING: This was the active live version!`
+      : `Version ${version} deleted permanently`;
+    
     await logUpdateAction(
       'DELETE',
       versionRecord.id,
       adminUserId,
       'SUCCESS',
-      `Version ${version} deleted permanently`,
-      { filename: versionRecord.filename }
+      logMessage,
+      { filename: versionRecord.filename, wasLive: isLiveVersion }
     );
 
     res.json({

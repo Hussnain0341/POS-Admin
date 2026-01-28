@@ -87,10 +87,18 @@ const VersionDetail: React.FC = () => {
   const handleDelete = async () => {
     if (!version) return;
 
-    const confirmMessage = `⚠️ WARNING: This will permanently delete the version!\n\n` +
+    const isLiveVersion = version.status === 'live';
+    const liveWarning = isLiveVersion 
+      ? `\n\n🚨 CRITICAL WARNING: This is the LIVE version!\n` +
+        `• Deleting this will remove the currently active version\n` +
+        `• POS clients will no longer be able to download updates\n` +
+        `• You should publish another version first if needed\n\n`
+      : '\n\n';
+
+    const confirmMessage = `⚠️ WARNING: This will permanently delete the version!${liveWarning}` +
       `Version: ${version.version}\n` +
       `File: ${version.filename}\n` +
-      `Status: ${version.status}\n\n` +
+      `Status: ${version.status.toUpperCase()}\n\n` +
       `This action will:\n` +
       `• Permanently delete the version from the database\n` +
       `• Delete the installer file from the server\n` +
@@ -100,6 +108,13 @@ const VersionDetail: React.FC = () => {
 
     if (!window.confirm(confirmMessage)) {
       return;
+    }
+
+    // Enhanced confirmation for live versions
+    if (isLiveVersion) {
+      if (!window.confirm('🚨 FINAL WARNING: You are about to delete the LIVE version!\n\nThis will remove the active version that POS clients are using.\n\nAre you absolutely certain?')) {
+        return;
+      }
     }
 
     // Double confirmation
@@ -115,7 +130,7 @@ const VersionDetail: React.FC = () => {
 
     try {
       await posUpdatesAPI.deleteVersion(version.version);
-      toast.success('Version deleted successfully!');
+      toast.success(isLiveVersion ? 'Live version deleted successfully! Make sure to publish another version if needed.' : 'Version deleted successfully!');
       navigate('/updates/history');
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Failed to delete version';
@@ -352,15 +367,17 @@ const VersionDetail: React.FC = () => {
                     Archive
                   </button>
                 )}
-                {version.status !== 'live' && (
-                  <button
-                    onClick={handleDelete}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium"
-                  >
-                    <MdClose className="w-5 h-5" />
-                    Delete Permanently
-                  </button>
-                )}
+                <button
+                  onClick={handleDelete}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition font-medium ${
+                    version.status === 'live'
+                      ? 'bg-red-700 text-white hover:bg-red-800 border-2 border-red-900'
+                      : 'bg-red-600 text-white hover:bg-red-700'
+                  }`}
+                >
+                  <MdClose className="w-5 h-5" />
+                  {version.status === 'live' ? 'Delete Live Version (Critical)' : 'Delete Permanently'}
+                </button>
                 <Link
                   to="/updates/logs"
                   className="block w-full text-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"

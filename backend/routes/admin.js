@@ -16,6 +16,59 @@ function generate2FACode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+/**
+ * Check and automatically expire licenses that have passed their expiry date
+ * This function should be called whenever licenses are queried to ensure
+ * expired licenses are automatically marked as expired
+ * Uses PostgreSQL CURRENT_DATE for accurate date comparison
+ */
+async function checkAndExpireLicenses() {
+  try {
+    // Find all active licenses that have expired (using PostgreSQL CURRENT_DATE)
+    const expiredResult = await pool.query(
+      `SELECT id, licensekey, tenantname, expirydate 
+       FROM licenses 
+       WHERE status = 'active' 
+       AND expirydate < CURRENT_DATE`
+    );
+
+    if (expiredResult.rows.length > 0) {
+      // Update all expired licenses
+      const updateResult = await pool.query(
+        `UPDATE licenses 
+         SET status = 'expired', updatedat = CURRENT_TIMESTAMP 
+         WHERE status = 'active' 
+         AND expirydate < CURRENT_DATE
+         RETURNING id, licensekey, tenantname, expirydate`
+      );
+
+      // Log each expired license
+      for (const license of updateResult.rows) {
+        await auditLog(
+          'license_expired_auto',
+          {
+            licenseKey: license.licensekey,
+            tenantName: license.tenantname,
+            expiryDate: license.expirydate,
+            reason: 'automatic_expiration_check'
+          },
+          license.id,
+          null // No request object available in utility function
+        );
+      }
+
+      console.log(`Automatically expired ${updateResult.rows.length} license(s)`);
+      return updateResult.rows.length;
+    }
+
+    return 0;
+  } catch (error) {
+    console.error('Error checking license expiration:', error);
+    // Don't throw - we don't want to break the request if expiration check fails
+    return 0;
+  }
+}
+
 // Admin Login - Step 1: validate password, send 2FA code to email
 router.post('/login', [
   body('username').notEmpty().withMessage('Username is required'),
@@ -345,6 +398,9 @@ router.post('/change-password/verify', authenticateToken, [
 // Get all licenses (with filters)
 router.get('/licenses', authenticateToken, async (req, res) => {
   try {
+    // Check and expire licenses automatically before fetching
+    await checkAndExpireLicenses();
+
     const { status, tenantName, plan, licenseKey, page = 1, limit = 50 } = req.query;
     const offset = (page - 1) * limit;
 
@@ -444,6 +500,9 @@ router.get('/licenses', authenticateToken, async (req, res) => {
 // Get single license with activations
 router.get('/licenses/:id', authenticateToken, async (req, res) => {
   try {
+    // Check and expire licenses automatically before fetching
+    await checkAndExpireLicenses();
+
     const { id } = req.params;
 
     const licenseResult = await pool.query('SELECT * FROM licenses WHERE id = $1', [id]);
@@ -763,6 +822,9 @@ router.delete('/licenses/:id', authenticateToken, async (req, res) => {
 // Get dashboard stats
 router.get('/dashboard/stats', authenticateToken, async (req, res) => {
   try {
+    // Check and expire licenses automatically before fetching stats
+    await checkAndExpireLicenses();
+
     const stats = await pool.query(`
       SELECT 
         COUNT(*) FILTER (WHERE status = 'active') as active_licenses,

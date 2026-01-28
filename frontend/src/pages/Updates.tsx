@@ -4,7 +4,7 @@ import { posUpdatesAPI, POSVersion } from '../services/api';
 import { 
   MdAdd as MdUpdatesIcon, MdAdd, MdAccessTime, MdCheckCircle, 
   MdWarning, MdArrowBack, MdRefresh,
-  MdLock
+  MdLock, MdClose
 } from 'react-icons/md';
 import toast from 'react-hot-toast';
 
@@ -21,12 +21,60 @@ const Updates: React.FC = () => {
       const response = await posUpdatesAPI.getAllVersions({ status: 'live', limit: 1 });
       if (response.versions && response.versions.length > 0) {
         setLiveVersion(response.versions[0]);
+      } else {
+        setLiveVersion(null);
       }
     } catch (error) {
       console.error('Failed to fetch live version:', error);
       toast.error('Failed to load live version');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteLiveVersion = async () => {
+    if (!liveVersion) return;
+
+    const confirmMessage = `🚨 CRITICAL WARNING: You are about to delete the LIVE version!\n\n` +
+      `Version: ${liveVersion.version}\n` +
+      `File: ${liveVersion.filename}\n\n` +
+      `⚠️ This will:\n` +
+      `• Remove the currently active version\n` +
+      `• POS clients will no longer be able to download updates\n` +
+      `• Permanently delete the version from the database\n` +
+      `• Delete the installer file from the server\n` +
+      `• Delete all associated update logs\n` +
+      `• This action CANNOT be undone\n\n` +
+      `You should publish another version first if needed.\n\n` +
+      `Are you absolutely sure you want to delete the LIVE version?`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    // Enhanced confirmation for live versions
+    if (!window.confirm('🚨 FINAL WARNING: You are about to delete the LIVE version!\n\nThis will remove the active version that POS clients are using.\n\nAre you absolutely certain?')) {
+      return;
+    }
+
+    // Double confirmation
+    if (!window.confirm('⚠️ FINAL WARNING: This will permanently delete the LIVE version. Type "DELETE" in the next prompt to confirm.')) {
+      return;
+    }
+
+    const userInput = window.prompt('Type "DELETE" (all caps) to confirm deletion:');
+    if (userInput !== 'DELETE') {
+      toast.error('Deletion cancelled. You must type "DELETE" to confirm.');
+      return;
+    }
+
+    try {
+      await posUpdatesAPI.deleteVersion(liveVersion.version);
+      toast.success('Live version deleted successfully! Make sure to publish another version if needed.');
+      fetchLiveVersion();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to delete live version';
+      toast.error(errorMessage);
     }
   };
 
@@ -110,79 +158,97 @@ const Updates: React.FC = () => {
           </div>
 
           {liveVersion ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Version Number</label>
-                  <p className="text-xl font-bold text-gray-900 mt-1">{liveVersion.version}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Release Date</label>
-                  <p className="text-gray-900 mt-1">
-                    {liveVersion.published_at ? formatDate(liveVersion.published_at) : formatDate(liveVersion.uploaded_at)}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Platform</label>
-                  <p className="text-gray-900 mt-1 capitalize">{liveVersion.platform}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">File Size</label>
-                  <p className="text-gray-900 mt-1">{formatFileSize(liveVersion.filesize)}</p>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                    Mandatory Update
-                    {liveVersion.mandatory ? (
-                      <MdLock className="w-4 h-4 text-red-600" />
-                    ) : (
-                      <MdCheckCircle className="w-4 h-4 text-gray-400" />
-                    )}
-                  </label>
-                  <p className="text-gray-900 mt-1">
-                    {liveVersion.mandatory ? (
-                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-lg font-medium">
-                        <MdLock className="w-4 h-4" />
-                        YES
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-800 rounded-lg font-medium">
-                        <MdCheckCircle className="w-4 h-4" />
-                        NO
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                    SHA256 Checksum
-                    <MdCheckCircle className="w-4 h-4 text-blue-600" />
-                  </label>
-                  <p className="text-xs font-mono text-gray-700 mt-1 break-all bg-gray-50 p-2 rounded">
-                    {liveVersion.checksum_sha256}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Download URL</label>
-                  <div className="mt-1 flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={liveVersion.download_url}
-                      readOnly
-                      className="flex-1 text-sm font-mono text-gray-700 bg-gray-50 border border-gray-200 rounded px-3 py-2"
-                    />
-                    <a
-                      href={liveVersion.download_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                    >
-                      <MdAdd className="w-5 h-5" />
-                    </a>
+            <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Version Number</label>
+                    <p className="text-xl font-bold text-gray-900 mt-1">{liveVersion.version}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Release Date</label>
+                    <p className="text-gray-900 mt-1">
+                      {liveVersion.published_at ? formatDate(liveVersion.published_at) : formatDate(liveVersion.uploaded_at)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Platform</label>
+                    <p className="text-gray-900 mt-1 capitalize">{liveVersion.platform}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">File Size</label>
+                    <p className="text-gray-900 mt-1">{formatFileSize(liveVersion.filesize)}</p>
                   </div>
                 </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                      Mandatory Update
+                      {liveVersion.mandatory ? (
+                        <MdLock className="w-4 h-4 text-red-600" />
+                      ) : (
+                        <MdCheckCircle className="w-4 h-4 text-gray-400" />
+                      )}
+                    </label>
+                    <p className="text-gray-900 mt-1">
+                      {liveVersion.mandatory ? (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-lg font-medium">
+                          <MdLock className="w-4 h-4" />
+                          YES
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-800 rounded-lg font-medium">
+                          <MdCheckCircle className="w-4 h-4" />
+                          NO
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                      SHA256 Checksum
+                      <MdCheckCircle className="w-4 h-4 text-blue-600" />
+                    </label>
+                    <p className="text-xs font-mono text-gray-700 mt-1 break-all bg-gray-50 p-2 rounded">
+                      {liveVersion.checksum_sha256}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Download URL</label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={liveVersion.download_url}
+                        readOnly
+                        className="flex-1 text-sm font-mono text-gray-700 bg-gray-50 border border-gray-200 rounded px-3 py-2"
+                      />
+                      <a
+                        href={liveVersion.download_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                      >
+                        <MdAdd className="w-5 h-5" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+                <Link
+                  to={`/updates/${liveVersion.id}`}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                >
+                  View Details
+                </Link>
+                <button
+                  onClick={handleDeleteLiveVersion}
+                  className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition font-medium border-2 border-red-900 flex items-center gap-2"
+                >
+                  <MdClose className="w-5 h-5" />
+                  Delete Live Version
+                </button>
               </div>
             </div>
           ) : (

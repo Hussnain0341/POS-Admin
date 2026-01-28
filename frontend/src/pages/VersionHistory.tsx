@@ -63,10 +63,19 @@ const VersionHistory: React.FC = () => {
     }
   };
 
-  const handleDelete = async (version: string, filename: string) => {
-    const confirmMessage = `⚠️ WARNING: This will permanently delete the version!\n\n` +
+  const handleDelete = async (version: string, filename: string, status: string) => {
+    const isLiveVersion = status === 'live';
+    const liveWarning = isLiveVersion 
+      ? `\n\n🚨 CRITICAL WARNING: This is the LIVE version!\n` +
+        `• Deleting this will remove the currently active version\n` +
+        `• POS clients will no longer be able to download updates\n` +
+        `• You should publish another version first if needed\n\n`
+      : '\n\n';
+
+    const confirmMessage = `⚠️ WARNING: This will permanently delete the version!${liveWarning}` +
       `Version: ${version}\n` +
-      `File: ${filename}\n\n` +
+      `File: ${filename}\n` +
+      `Status: ${status.toUpperCase()}\n\n` +
       `This action will:\n` +
       `• Permanently delete the version from the database\n` +
       `• Delete the installer file from the server\n` +
@@ -76,6 +85,13 @@ const VersionHistory: React.FC = () => {
 
     if (!window.confirm(confirmMessage)) {
       return;
+    }
+
+    // Enhanced confirmation for live versions
+    if (isLiveVersion) {
+      if (!window.confirm('🚨 FINAL WARNING: You are about to delete the LIVE version!\n\nThis will remove the active version that POS clients are using.\n\nAre you absolutely certain?')) {
+        return;
+      }
     }
 
     // Double confirmation
@@ -91,7 +107,7 @@ const VersionHistory: React.FC = () => {
 
     try {
       await posUpdatesAPI.deleteVersion(version);
-      toast.success('Version deleted successfully!');
+      toast.success(isLiveVersion ? 'Live version deleted successfully! Make sure to publish another version if needed.' : 'Version deleted successfully!');
       fetchVersions();
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Failed to delete version';
@@ -292,15 +308,17 @@ const VersionHistory: React.FC = () => {
                             <MdCancel className="w-5 h-5" />
                           </button>
                         )}
-                        {version.status !== 'live' && (
-                          <button
-                            onClick={() => handleDelete(version.version, version.filename)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                            title="Delete Permanently"
-                          >
-                            <MdClose className="w-5 h-5" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDelete(version.version, version.filename, version.status)}
+                          className={`p-2 rounded-lg transition ${
+                            version.status === 'live'
+                              ? 'text-red-700 hover:bg-red-100 border-2 border-red-300'
+                              : 'text-red-600 hover:bg-red-50'
+                          }`}
+                          title={version.status === 'live' ? 'Delete Live Version (Critical)' : 'Delete Permanently'}
+                        >
+                          <MdClose className="w-5 h-5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
