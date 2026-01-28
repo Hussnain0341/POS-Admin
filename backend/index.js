@@ -61,9 +61,9 @@ app.use('/api/', limiter);
 app.use('/api/admin/login', authLimiter);
 app.use('/api/admin/verify-2fa', authLimiter);
 
-// Body parsing (increased for large file uploads)
-app.use(express.json({ limit: '500mb' }));
-app.use(express.urlencoded({ extended: true, limit: '500mb' }));
+// Body parsing (increased for large file uploads - 1GB for large installer files)
+app.use(express.json({ limit: '1gb' }));
+app.use(express.urlencoded({ extended: true, limit: '1gb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {

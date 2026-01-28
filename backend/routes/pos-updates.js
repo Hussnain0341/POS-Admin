@@ -79,7 +79,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 500 * 1024 * 1024 // 500MB max
+    fileSize: 1024 * 1024 * 1024 // 1GB max (1024MB) - increased for large installer files
   }
 });
 
